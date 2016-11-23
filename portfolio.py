@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import datetime
+import numpy as np
 
 def get_date_range(trades):
     start_date = trades['Date'].min().strftime("%Y-%m-%d") # Date of earliest trade
@@ -91,24 +92,26 @@ def construct_prices_dataframe(symbols, dates, benchmark_symbol='^AXJO'):
 def normalize_data(df):
     return df / df.ix[0,:]
 
-def plot_data(df, title="Stock prices"):
+def plot_data(df, ylabel="Value", title="Portfolio value"):
     ax = df.plot(title=title, fontsize=14)
     ax.set_xlabel("Date")
-    ax.set_ylabel("Price")
+    ax.set_ylabel(ylabel)
     plt.show()
 
 def plot_individual_stock_prices(symbols, dates):
     df = construct_prices_dataframe(symbols, dates)
     df = normalize_data(df)
-    plot_data(df)
+    plot_data(df, title="Stock Prices", ylabel="Price")
 
-def get_portfolio_value_over_time(trades, prices, exchange=''):
+def get_portfolio_value_over_time(trades, prices, exchange='', benchmark_symbol='^AXJO'):
     """Takes a dataframe of trades and returns a dataframe of value each day
     from the earliest trade date to today"""
 
     # Create a dataframe with the same dates as the prices df
     # (hence excludes non-trading days)
-    holdings = pd.Series(data=0, index=prices.index.values)
+    holdings = pd.DataFrame(data=np.zeros((prices.index.values.size, 2)),
+                            index=prices.index.values,
+                            columns=['Portfolio', 'Benchmark'])
 
     for index, trade in trades.iterrows():
         symbol = trade.Symbol
@@ -120,6 +123,7 @@ def get_portfolio_value_over_time(trades, prices, exchange=''):
             continue
 
         trade_holding = pd.Series(data=0, index=prices.index.values)
+        bm_holding = pd.Series(data=0, index=prices.index.values)
 
         # Sell trades should subtract the holding
         if trade.Type == 'Buy':
@@ -129,9 +133,14 @@ def get_portfolio_value_over_time(trades, prices, exchange=''):
 
         # Set the holding value after the trade date to be the number of shares
         # traded multiplied by the price on that date
+        # adjusted_shares = trade.Shares * trade.Price / prices.ix[trade['Date'], symbol]
         trade_holding.ix[trade['Date']:] = sign * trade.Shares * prices[symbol]
 
-        holdings += trade_holding
+        adjusted_bm_shares = trade.Shares * trade.Price / prices.ix[trade['Date'], benchmark_symbol]
+        bm_holding.ix[trade['Date']:] = sign * adjusted_bm_shares * prices[benchmark_symbol]
+
+        holdings['Portfolio'] += trade_holding
+        holdings['Benchmark'] += bm_holding
 
     return holdings
 
@@ -149,6 +158,8 @@ def test_run():
     prices = construct_prices_dataframe(symbols, dates)
 
     portfolio = get_portfolio_value_over_time(trades, prices, 'ASX')
+
+    print(portfolio)
 
     plot_data(portfolio)
 
