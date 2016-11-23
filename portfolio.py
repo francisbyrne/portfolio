@@ -3,6 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import datetime
 
+def get_date_range(trades):
+    start_date = trades['Date'].min().strftime("%Y-%m-%d") # Date of earliest trade
+    end_date = datetime.date.today().strftime("%Y-%m-%d") # Today's date
+    return pd.date_range(start_date, end_date)
+
 def filename_to_path(name, base_dir="data"):
     """Return CSV file path given filename."""
     return os.path.join(base_dir, "{}.csv".format(str(name)))
@@ -75,9 +80,11 @@ def construct_prices_dataframe(symbols, dates, benchmark_symbol='^AXJO'):
         # Join with main dataframe
         prices = prices.join(dfStock)
 
-        # Drop any dates SPY didn't trade on
+        # Drop any dates benchmark didn't trade on
         if symbol == benchmark_symbol:
             prices = prices.dropna(subset=[benchmark_symbol])
+
+    prices = prices.fillna(value=0)
 
     return prices
 
@@ -95,22 +102,55 @@ def plot_individual_stock_prices(symbols, dates):
     df = normalize_data(df)
     plot_data(df)
 
+def get_portfolio_value_over_time(trades, prices, exchange=''):
+    """Takes a dataframe of trades and returns a dataframe of value each day
+    from the earliest trade date to today"""
+
+    # Create a dataframe with the same dates as the prices df
+    # (hence excludes non-trading days)
+    holdings = pd.Series(data=0, index=prices.index.values)
+
+    for index, trade in trades.iterrows():
+        symbol = trade.Symbol
+        if exchange is 'ASX':
+            symbol += '.AX'
+
+        # Skip any stocks with no price data
+        if symbol not in prices.columns:
+            continue
+
+        trade_holding = pd.Series(data=0, index=prices.index.values)
+
+        # Sell trades should subtract the holding
+        if trade.Type == 'Buy':
+            sign = 1
+        else:
+            sign = -1
+
+        # Set the holding value after the trade date to be the number of shares
+        # traded multiplied by the price on that date
+        trade_holding.ix[trade['Date']:] = sign * trade.Shares * prices[symbol]
+
+        holdings += trade_holding
+
+    return holdings
+
+
 def test_run():
     trades = read_trades_csv()
-
-    # Define a date range
-    start_date = trades['Date'].min().strftime("%Y-%m-%d") # The earliest trade date
-    end_date = datetime.date.today().strftime("%Y-%m-%d") # Today's date
-    dates = pd.date_range(start_date, end_date)
 
     # Get symbols of all stocks traded
     symbols = trades.Symbol.unique().tolist()
 
+    # Define a date range
+    dates = get_date_range(trades)
+
     # Get historical prices for all traded stocks
     prices = construct_prices_dataframe(symbols, dates)
 
+    portfolio = get_portfolio_value_over_time(trades, prices, 'ASX')
 
-
+    print(portfolio)
 
 
 if __name__ == "__main__":
