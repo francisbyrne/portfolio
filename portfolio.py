@@ -150,7 +150,7 @@ def test_run():
 
     portfolio = get_portfolio_value_over_time(trades, prices, 'ASX')
 
-    print(portfolio)
+    plot_data(portfolio)
 
 
 if __name__ == "__main__":
