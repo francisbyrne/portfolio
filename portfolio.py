@@ -1,7 +1,7 @@
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
 import datetime
-from yahoo_finance import Share
 
 def filename_to_path(name, base_dir="data"):
     """Return CSV file path given filename."""
@@ -25,13 +25,6 @@ def read_trades_csv():
 
     return df
 
-def get_historical_data(symbol, start_date, end_date):
-    """Pull the historical data from Yahoo Finance and return dataframe"""
-    share = Share(symbol + '.AX') # Stock tickers are for ASX
-    historical_data = share.get_historical(start_date, end_date)
-
-    return pd.DataFrame(historical_data)
-
 def read_historical_csv(symbol, exchange=''):
     if exchange is 'ASX':
         symbol += '.AX'
@@ -39,14 +32,57 @@ def read_historical_csv(symbol, exchange=''):
     path = filename_to_path(symbol, base_dir='data/historical-prices')
 
     # Read data in from csv file
-    df = pd.read_csv(path,
-                     parse_dates=['Date'],
-                     usecols=['Date', 'Adj Close'])
+    try:
+        df = pd.read_csv(path,
+                     index_col='Date',
+                     parse_dates=True,
+                     usecols=['Date', 'Adj Close'],
+                     na_values=['nan'])
 
-    # Drop rows where any column is empty
-    df = df.dropna(axis=0)
+    # If there are any data errors, just print an error and skip this stock
+    except ValueError as err:
+        print('Failed to read data for: ' + symbol, err)
+        return None
+
+    # Rename adj close column to symbol name
+    df = df.rename(columns={'Adj Close': symbol})
 
     return df
+
+def construct_prices_dataframe(symbols, dates, benchmark_symbol='^AXJO'):
+    """Construct a dataframe of historical prices for the given symbols over
+    the given dates"""
+
+    prices = pd.DataFrame(index=dates)
+
+    if benchmark_symbol not in symbols:
+        symbols.insert(0, benchmark_symbol)
+
+    for symbol in symbols:
+        if symbol is benchmark_symbol:
+            exchange = ''
+        else:
+            exchange = 'ASX'
+
+        dfStock = read_historical_csv(symbol, exchange=exchange)
+
+        if dfStock is None:
+            continue
+
+        # Round to two dec. places
+        # dfStock = dfStock.round(2)
+
+        # Join with main dataframe
+        prices = prices.join(dfStock)
+
+        # Drop any dates SPY didn't trade on
+        if symbol == benchmark_symbol:
+            prices = prices.dropna(subset=[benchmark_symbol])
+
+    return prices
+
+def normalize_data(df):
+    return df / df.ix[0,:]
 
 def plot_data(df, title="Stock prices"):
     ax = df.plot(title=title, fontsize=14)
@@ -54,29 +90,28 @@ def plot_data(df, title="Stock prices"):
     ax.set_ylabel("Price")
     plt.show()
 
-def test_run():
-    # Define a date range
-    dates = pd.date_range('2015-01-01', '2015-12-31')
-
-    # Choose stock symbols to read
-    symbols = ['VOC', 'CTD', 'WEB']
-
-    # Get stock data
-    df = get_data(symbols, dates)
-
+def plot_individual_stock_prices(symbols, dates):
+    df = construct_prices_dataframe(symbols, dates)
     df = normalize_data(df)
-
-    # Print subset of data range
-    # print(df.ix['2010-03-01':'2010-03-31', ['SPY', 'IBM', 'GOOG']])
     plot_data(df)
+
+def test_run():
+    trades = read_trades_csv()
+
+    # Define a date range
+    start_date = trades['Date'].min().strftime("%Y-%m-%d") # The earliest trade date
+    end_date = datetime.date.today().strftime("%Y-%m-%d") # Today's date
+    dates = pd.date_range(start_date, end_date)
+
+    # Get symbols of all stocks traded
+    symbols = trades.Symbol.unique().tolist()
+
+    # Get historical prices for all traded stocks
+    prices = construct_prices_dataframe(symbols, dates)
+
+
+
 
 
 if __name__ == "__main__":
     test_run()
-
-
-# trades = read_trades_csv()
-# symbols = trades.Symbol.unique()
-# for symbol in symbols:
-#     start_date = trades.ix[trades.Symbol==symbol, 'Date'].min().strftime("%Y-%m-%d") # The earliest trade date
-#     end_date = datetime.date.today().strftime("%Y-%m-%d") # Today's date
