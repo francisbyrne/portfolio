@@ -144,6 +144,20 @@ def get_portfolio_value_over_time(trades, prices, exchange='', benchmark_symbol=
 
     return holdings
 
+def compute_daily_returns(df):
+    # Match rows and columns of original dataframe
+    daily_returns = df.copy()
+
+    # Compute daily returns for row 1 onwards
+    daily_returns[1:] = (df[1:] / df[:-1].values) - 1
+
+    # Initial row is uncalculatable, so set it to 0
+    daily_returns.ix[0, :] = 0
+
+    return daily_returns
+
+def compute_rolling_mean(df, window=30):
+    return df.rolling(window).mean()
 
 def test_run():
     trades = read_trades_csv()
@@ -157,11 +171,27 @@ def test_run():
     # Get historical prices for all traded stocks
     prices = construct_prices_dataframe(symbols, dates)
 
+    # US funds skew the pf value due to different non-trading days from the benchmark
+    del prices['VTS.AX']
+    del prices['VAS.AX']
+
     portfolio = get_portfolio_value_over_time(trades, prices, 'ASX')
 
-    print(portfolio)
+    # Get weekly prices, rather than daily
+    # portfolio_weekly = portfolio['2014-01-01':'2016-11-22':5]
 
-    plot_data(portfolio)
+    portfolio = portfolio.ix['2016-01-01':'2016-11-22', :]
+
+    # print(portfolio)
+    #
+    # prices = prices.ix['2016-10-10':'2016-10-20', :]
+    #
+    # del prices['^AXJO']
+    # plot_data(prices)
+
+    daily_returns = compute_daily_returns(portfolio)
+    daily_returns = compute_rolling_mean(daily_returns)
+    plot_data(daily_returns)
 
 
 if __name__ == "__main__":
