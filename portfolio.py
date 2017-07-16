@@ -33,7 +33,7 @@ def read_trades_csv():
 
 def read_historical_csv(symbol, exchange=''):
     if exchange is 'ASX':
-        symbol += '.AX'
+        symbol += '.XASX'
 
     path = filename_to_path(symbol, base_dir='data/historical-prices')
 
@@ -116,7 +116,7 @@ def get_portfolio_value_over_time(trades, prices, exchange='', benchmark_symbol=
     for index, trade in trades.iterrows():
         symbol = trade.Symbol
         if exchange is 'ASX':
-            symbol += '.AX'
+            symbol += '.XASX'
 
         # Skip any stocks with no price data
         if symbol not in prices.columns:
@@ -172,15 +172,15 @@ def test_run():
     prices = construct_prices_dataframe(symbols, dates)
 
     # US funds skew the pf value due to different non-trading days from the benchmark
-    del prices['VTS.AX']
-    del prices['VAS.AX']
+    del prices['VTS.XASX']
+    del prices['VAS.XASX']
 
     portfolio = get_portfolio_value_over_time(trades, prices, 'ASX')
 
     # Get weekly prices, rather than daily
     # portfolio_weekly = portfolio['2014-01-01':'2016-11-22':5]
 
-    portfolio = portfolio.ix['2016-01-01':'2016-11-22', :]
+    portfolio = portfolio.ix['2016-07-16':'2017-07-14', :]
 
     # print(portfolio)
     #

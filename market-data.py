@@ -8,7 +8,7 @@
 import requests
 
 def make_url(ticker_symbol):
-    base_url = "http://ichart.finance.yahoo.com/table.csv?s="
+    base_url = "https://www.xignite.com/xGlobalHistorical.csv/GetGlobalHistoricalQuotesRange?_token=00928143FA5E470D94B92A00CB1CDCED&StartDate=7/16/2016&EndDate=7/14/2017&IdentifierType=Symbol&AdjustmentMethod=SplitAndProportionalCashDividend&Identifier="
     return base_url + ticker_symbol
 
 def pull_historical_data(ticker_symbol):
@@ -30,7 +30,7 @@ def write_to_file(content, ticker_symbol):
 
 def download_hist_data_csv(ticker_symbol, exchange=''):
     if exchange is 'ASX':
-        ticker_symbol += '.AX'
+        ticker_symbol += '.XASX'
     response = pull_historical_data(ticker_symbol)
     write_to_file(response, ticker_symbol)
 
@@ -38,9 +38,11 @@ def download_all_hist_data(ticker_symbols, exchange='ASX'):
     for symbol in ticker_symbols:
         download_hist_data_csv(symbol, exchange)
 
-# download_all_hist_data([
-#     'BHP', 'MQG', 'VOC', 'AMM', 'MTS', 'CTD', 'IRI', 'CDA', 'CLH',
-#     'RCG', 'COH', 'SIV', 'NHF', 'SOL', 'IMF', 'CBA', 'NAB', 'ABC',
-#     'DMG', 'PMV', 'CCV', 'RMD', 'TLS', 'WEB', 'MTU', 'GBT', 'SYD',
-#     'TFC', 'CGF', 'FXL', 'GRB', 'CCL', 'TRS', 'PBG', 'CAR', 'MNF',
-#     'CPU', 'OFX', 'VRT', 'VTS', 'VAS', 'RFG'])
+download_all_hist_data([
+    'BHP', 'MQG', 'VOC', 'AMM', 'MTS', 'CTD', 'IRI', 'CDA', 'CLH',
+    'RCG', 'COH', 'SIV', 'NHF', 'SOL', 'IMF', 'CBA', 'NAB', 'ABC',
+    'DMG', 'PMV', 'CCV', 'RMD', 'TLS', 'WEB', 'MTU', 'GBT', 'SYD',
+    'TFC', 'CGF', 'FXL', 'GRB', 'CCL', 'TRS', 'PBG', 'CAR', 'MNF',
+    'CPU', 'OFX', 'VRT', 'VTS', 'VAS', 'RFG'])
+
+# download_all_hist_data(['BHP'])
