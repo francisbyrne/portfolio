@@ -6,10 +6,15 @@
 # http://ichart.finance.yahoo.com/table.csv?d=6&e=1&f=2009&g=d&a=7&b=19&c=2004&ignore=.csv&s=
 
 import requests
+import file
+import os
+
 
 def make_url(ticker_symbol):
-    base_url = "https://www.xignite.com/xGlobalHistorical.csv/GetGlobalHistoricalQuotesRange?_token=00928143FA5E470D94B92A00CB1CDCED&StartDate=7/16/2016&EndDate=7/14/2017&IdentifierType=Symbol&AdjustmentMethod=SplitAndProportionalCashDividend&Identifier="
+    API_KEY = os.environ['XIGNITE_API_KEY']
+    base_url = f"https://www.xignite.com/xGlobalHistorical.csv/GetGlobalHistoricalQuotesRange?_token={API_KEY}&StartDate=7/16/2016&EndDate=7/14/2017&IdentifierType=Symbol&AdjustmentMethod=SplitAndProportionalCashDividend&Identifier="
     return base_url + ticker_symbol
+
 
 def pull_historical_data(ticker_symbol):
     """Takes a Yahoo Finance ticker symbol and returns the historical data for
@@ -18,15 +23,13 @@ def pull_historical_data(ticker_symbol):
         url = make_url(ticker_symbol)
         return s.get(url)
 
-def make_filepath(ticker_symbol, directory="data/historical-prices"):
-    output_path = "."
-    return output_path + "/" + directory + "/" + ticker_symbol + ".csv"
 
 def write_to_file(content, ticker_symbol):
-    path = make_filepath(ticker_symbol)
+    path = file.make_path(ticker_symbol)
     with open(path, 'wb') as handle:
         for block in content.iter_content(1024):
             handle.write(block)
+
 
 def download_hist_data_csv(ticker_symbol, exchange=''):
     if exchange is 'ASX':
@@ -34,9 +37,11 @@ def download_hist_data_csv(ticker_symbol, exchange=''):
     response = pull_historical_data(ticker_symbol)
     write_to_file(response, ticker_symbol)
 
+
 def download_all_hist_data(ticker_symbols, exchange='ASX'):
     for symbol in ticker_symbols:
         download_hist_data_csv(symbol, exchange)
+
 
 download_all_hist_data([
     'BHP', 'MQG', 'VOC', 'AMM', 'MTS', 'CTD', 'IRI', 'CDA', 'CLH',
