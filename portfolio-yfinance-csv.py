@@ -5,30 +5,17 @@ import datetime
 import numpy as np
 import file
 
+BASE_CURRENCY = 'USD'
 
-def get_date_range(trades):
+
+# TODO: Include first month and today's date
+def get_monthly_dates(trades):
     start_date = trades['Date'].min().strftime(
         "%Y-%m-%d")  # Date of earliest trade
     end_date = datetime.date.today().strftime("%Y-%m-%d")  # Today's date
+
+    # Get start of every month date range
     return pd.date_range(start_date, end_date, freq="MS")
-
-
-def read_trades_csv():
-    """Read in the trades csv and store it in a dataframe"""
-    path = file.make_path('trades', '')
-
-    # Read data in from csv file
-    col_names = ['Date', 'Symbol', 'Type',
-                 'Currency', 'Shares', 'Price', 'Commission']
-    df = pd.read_csv(path,
-                     parse_dates=['Date'],
-                     names=col_names,
-                     header=0)
-
-    # Drop rows where any column is empty
-    df = df.dropna(axis=0)
-
-    return df
 
 
 def read_historical_csv(symbol):
@@ -56,6 +43,26 @@ def read_historical_csv(symbol):
     return df
 
 
+def construct_forex_dataframe(currencies, dates):
+    df = pd.DataFrame(index=dates)
+
+    for currency in currencies:
+        if currency == BASE_CURRENCY:
+            df[currency] = 1
+            continue
+
+        path = file.make_path(currency + BASE_CURRENCY, 'forex')
+        dfForex = pd.read_csv(path,
+                              index_col='Date',
+                              names=['Date', currency],
+                              header=0,
+                              parse_dates=True)
+
+        df = df.join(dfForex)
+
+    return df
+
+
 def construct_prices_dataframe(symbols, dates):
     """Construct a dataframe of historical prices for the given symbols over
     the given dates"""
@@ -67,9 +74,6 @@ def construct_prices_dataframe(symbols, dates):
 
         if dfStock is None:
             continue
-
-        # Round to two dec. places
-        # dfStock = dfStock.round(2)
 
         # Join with main dataframe
         prices = prices.join(dfStock)
@@ -90,7 +94,7 @@ def plot_data(df, ylabel="Value", title="Portfolio value"):
     plt.show()
 
 
-def get_portfolio_value_over_time(trades, prices):
+def get_portfolio_value_over_time(trades, prices, forex):
     """Takes a dataframe of trades and returns a dataframe of value each day
     from the earliest trade date to today"""
 
@@ -102,12 +106,14 @@ def get_portfolio_value_over_time(trades, prices):
 
     for index, trade in trades.iterrows():
         symbol = trade.Symbol
+        currency = trade.Currency
 
         # Skip any stocks with no price data
         if symbol not in prices.columns:
             continue
 
         trade_holding = pd.Series(data=0, index=prices.index.values)
+        trade_qty = pd.Series(data=0, index=prices.index.values)
 
         # Sell trades should subtract the holding
         if trade.Type == 'Buy':
@@ -118,7 +124,8 @@ def get_portfolio_value_over_time(trades, prices):
         # Set the holding value after the trade date to be the number of shares
         # traded multiplied by the price on that date
         # adjusted_shares = trade.Shares * trade.Price / prices.ix[trade['Date'], symbol]
-        trade_holding.ix[trade['Date']:] = sign * trade.Shares * prices[symbol]
+        trade_holding.loc[trade['Date']:] = round(sign *
+                                                  trade.Quantity * prices[symbol] * forex[currency], 2)
 
         holdings['Portfolio'] += trade_holding
 
@@ -143,13 +150,19 @@ def compute_rolling_mean(df, window=30):
 
 
 def test_run():
-    trades = read_trades_csv()
+    trades = file.read_trades_csv()
 
     # Get symbols of all stocks traded
     symbols = trades.Symbol.unique().tolist()
 
+    # Get the currencies of all stocks traded
+    currencies = trades.Currency.unique().tolist()
+
     # Define a date range
-    dates = get_date_range(trades)
+    dates = get_monthly_dates(trades)
+
+    # Get historical forex for all traded stocks
+    forex = construct_forex_dataframe(currencies, dates)
 
     # Get historical prices for all traded stocks
     prices = construct_prices_dataframe(symbols, dates)
@@ -158,7 +171,7 @@ def test_run():
     # del prices['VTS.XASX']
     # del prices['VAS.XASX']
 
-    portfolio = get_portfolio_value_over_time(trades, prices)
+    portfolio = get_portfolio_value_over_time(trades, prices, forex)
 
     print(portfolio)
 
